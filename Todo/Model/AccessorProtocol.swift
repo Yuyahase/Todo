@@ -13,7 +13,7 @@ protocol AccessorProtocol {
     /// protocolの準拠時に、具体的な型を指定する
     associatedtype ObjectType: Object
     func getByID(id: String) -> ObjectType?
-    func getAll() -> Results<ObjectType>?
+    func getAll() -> [ObjectType]
     func set(data: Object) -> Bool
     func delete(data: Object) -> Bool
 }

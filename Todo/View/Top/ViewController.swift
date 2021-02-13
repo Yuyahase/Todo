@@ -6,10 +6,14 @@
 //
 
 import UIKit
+import FloatingPanel
+import RealmSwift
 
-class ViewController: UIViewController {
+class ViewController: UIViewController, UIAdaptivePresentationControllerDelegate {
 
-    var TODO: [String] = ["牛乳を買う", "掃除をする", "アプリ開発の勉強をする"]
+    var todos: [TodoModel] = []
+    var fpc: FloatingPanelController!
+    var notificationToken: NotificationToken? = nil
 
     @IBOutlet weak var tableView: UITableView!
 
@@ -20,6 +24,9 @@ class ViewController: UIViewController {
         tableView.dataSource = self
         tableView.separatorStyle = .none
 
+        fpc = FloatingPanelController()
+        fpc.delegate = self
+
         //Registers a class for use in creating new table cells.
         tableView.register(UINib(nibName: "TableViewCell", bundle: nil),forCellReuseIdentifier:"TableViewCell")
         
@@ -28,45 +35,56 @@ class ViewController: UIViewController {
         let addButton = UIBarButtonItem(image: .add, style: .done, target: self, action: #selector(tapAddButton))
 
         self.navigationItem.rightBarButtonItem = addButton
+
+        self.todos = TodoAccessor.sharedInstance.getAll()
+
+        let realm = try! Realm()
+        notificationToken = realm.objects(TodoModel.self).observe { [weak self] (changes: RealmCollectionChange) in
+            guard let tableView = self?.tableView else { return }
+            switch changes {
+            case .initial:
+                tableView.reloadData()
+            case .update:
+                self!.todos = TodoAccessor.sharedInstance.getAll()
+                tableView.reloadData()
+            case .error(let error):
+                fatalError("\(error)")
+            }
+        }
+    }
+
+    deinit {
+        notificationToken?.invalidate()
     }
 
     @objc func tapAddButton() {
-        let vc = AddViewController()
-        //The transition style to use when presenting the view controller.
-        vc.modalTransitionStyle = .coverVertical
-
-        //The presentation style for modal view controllers.
-        vc.modalPresentationStyle = .automatic
-
-        //Presents a view controller modally.
-        self.present(vc, animated: true, completion: nil)
+        let contentVC = AddViewController()
+        fpc.set(contentViewController: contentVC)
+        fpc.presentationController?.delegate = self
+        fpc.isRemovalInteractionEnabled = true
+        fpc.layout = MyFloatingPanelLayout()
+        fpc.addPanel(toParent: self)
     }
 }
 extension ViewController: UITableViewDelegate {
 
 }
-
 extension ViewController: UITableViewDataSource {
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return TODO.count
+        return self.todos.count
     }
 
     //Asks the data source for a cell to insert in a particular location of the table view.
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        //Returns a reusable table-view cell object for the specified reuse identifier and adds it to the table.
+        let todo = self.todos[indexPath.row]
         let cell = tableView.dequeueReusableCell(withIdentifier: "TableViewCell", for: indexPath) as! TableViewCell
-        cell.taskLabel.text = TODO[indexPath.row]
-
-        //this determines the number of lines to draw and what to do when sizeToFit is called. default value is 1 (single line). A value of 0 means no limit
-        cell.textLabel?.numberOfLines = 0
-
+        cell.setData(model: todo)
         return cell
     }
 
     // Called after the user changes the selection.
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        print(indexPath.row)
         let vc = DetailViewController()
         self.navigationController?.pushViewController(vc, animated: true)
     }
@@ -83,25 +101,36 @@ extension ViewController: UITableViewDataSource {
     //Asks the data source to commit the insertion or deletion of a specified row in the receiver.
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == UITableViewCell.EditingStyle.delete {
-            TODO.remove(at: indexPath.row)
-            tableView.deleteRows(at: [indexPath as IndexPath], with: .automatic)
+            if TodoAccessor.sharedInstance.delete(data: self.todos[indexPath.row]) {
+                self.todos.remove(at: indexPath.row)
+                tableView.deleteRows(at: [indexPath as IndexPath], with: .automatic)
+            }
         }
     }
 
     func tableView(_ tableView: UITableView, moveRowAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
-        let todo = TODO[sourceIndexPath.row]
+        let todo = todos[sourceIndexPath.row]
         //元の位置のデータを配列から削除
-        TODO.remove(at:sourceIndexPath.row)
+        todos.remove(at:sourceIndexPath.row)
         //移動先の位置にデータを配列に挿入
-        TODO.insert(todo, at: destinationIndexPath.row)
+        todos.insert(todo, at: destinationIndexPath.row)
     }
 
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return 100
     }
 }
-
-
+extension ViewController: FloatingPanelControllerDelegate{
+    class MyFloatingPanelLayout: FloatingPanelLayout {
+        let position: FloatingPanelPosition = .bottom
+        let initialState: FloatingPanelState = .tip
+        var anchors: [FloatingPanelState: FloatingPanelLayoutAnchoring] {
+            return [
+                .tip: FloatingPanelLayoutAnchor(absoluteInset: 180.0, edge: .bottom, referenceGuide: .safeArea),
+            ]
+        }
+    }
+}
 class ShadowView: UIView {
     //The bounds rectangle, which describes the view’s location and size in its own coordinate system.
     override var bounds: CGRect{

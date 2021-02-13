@@ -9,6 +9,7 @@ import Foundation
 import RealmSwift
 
 class TodoAccessor: AccessorBase, AccessorProtocol {
+
     typealias ObjectType = TodoModel
 
     // Singleton
@@ -26,7 +27,7 @@ class TodoAccessor: AccessorBase, AccessorProtocol {
         }
     }
 
-    func getAll() -> Results<TodoModel>? {
-        return realm.objects(TodoModel.self).sorted(byKeyPath: "id")
+    func getAll() -> [ObjectType] {
+        return Array(realm.objects(TodoModel.self))
     }
 }

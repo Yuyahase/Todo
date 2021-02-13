@@ -22,4 +22,10 @@ class TableViewCell: UITableViewCell {
     override func setSelected(_ selected: Bool, animated: Bool) {
         super.setSelected(selected, animated: animated)
     }
+
+    /// データを画面項目にセットする
+    /// - parameter model: データモデル
+    func setData(model: TodoModel) {
+        self.taskLabel.text = model.taskName
+    }
 }

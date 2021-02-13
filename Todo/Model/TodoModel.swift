@@ -9,9 +9,10 @@ import Foundation
 import RealmSwift
 
 class TodoModel: Object {
-    dynamic var id: String = ""
-    dynamic var taskName: String = ""
-    dynamic var note: String = ""
+    @objc dynamic var id: String = ""
+    @objc dynamic var taskName: String = ""
+    @objc dynamic var note: String?
+    @objc dynamic var deadLine: Date?
     override static func primaryKey() -> String? {
         return "id"
     }

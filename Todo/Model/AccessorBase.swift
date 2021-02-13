@@ -14,8 +14,14 @@ class AccessorBase {
 
     /// コンストラクタ
     init() {
+
+        var config = Realm.Configuration()
+        config.deleteRealmIfMigrationNeeded = true
+        realm = try! Realm(configuration: config)
+        print(Realm.Configuration.defaultConfiguration.fileURL!)
         // Realmオブジェクト生成
-       realm = try! Realm()
+        //realm = try! Realm()
+
     }
 
     /// データをUpdateする
